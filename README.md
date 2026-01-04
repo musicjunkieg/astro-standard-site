@@ -5,6 +5,8 @@ The first Astro integration for [standard.site](https://standard.site) — a uni
 **Write once, publish everywhere.** Sync your Astro blog with any platform that supports the standard.site lexicon, like [pckt](https://pckt.blog)(**soon**), [Leaflet](https://leaflet.pub)(**soon**), and [Offprint](https://offprint.app)
 (also **soon**). 
 
+Created with love by Bryan Guffey
+
 ## Features
 
 - 📤 **Publish** — Sync your Astro blog posts to ATProto
