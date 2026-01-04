@@ -1,11 +1,29 @@
 {
-  "name": "astro-standard-site",
+  "name": "@bryanguffey/astro-standard-site",
   "version": "1.0.0",
   "description": "Astro Content Layer loader for standard.site - unified ATProto longform publishing",
-  "repository": "github:musicjunkieg/astro-standard-site",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "keywords": [
+    "astro",
+    "astro-integration",
+    "atproto",
+    "bluesky",
+    "standard.site",
+    "leaflet",
+    "whitewind",
+    "blog",
+    "ssg"
+  ],
+  "homepage": "https://github.com/musicjunkieg/astro-standard-site#readme",
+  "bugs": {
+    "url": "https://github.com/musicjunkieg/astro-standard-site/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/musicjunkieg/astro-standard-site.git"
+  },
+  "license": "MIT",
+  "author": "Bryan Guffey <bryan@makeworkbetter.io> (https://bryanguffey.com)",
+  "type": "package",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -20,6 +38,8 @@
       "import": "./dist/publisher.js"
     }
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "README.md"
@@ -28,22 +48,6 @@
     "build": "tsc",
     "prepublishOnly": "npm run build"
   },
-  "keywords": [
-    "astro",
-    "astro-integration",
-    "atproto",
-    "bluesky",
-    "standard.site",
-    "leaflet",
-    "whitewind",
-    "blog",
-    "ssg"
-  ],
-  "author": "Bryan Guffey <bryan@makeworkbetter.io> (https://bryanguffey.com)",
-  "license": "MIT",
-  "peerDependencies": {
-    "astro": "^5.0.0"
-  },
   "dependencies": {
     "@atproto/api": "^0.15.0",
     "zod": "^3.24.0"
@@ -51,5 +55,8 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "astro": "^5.0.0"
   }
 }
