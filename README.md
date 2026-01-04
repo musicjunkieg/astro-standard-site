@@ -2,7 +2,8 @@
 
 The first Astro integration for [standard.site](https://standard.site) — a unified schema for longform publishing on ATProto.
 
-**Write once, publish everywhere.** Sync your Astro blog with Leaflet, WhiteWind, and any platform that supports the standard.site lexicon.
+**Write once, publish everywhere.** Sync your Astro blog with any platform that supports the standard.site lexicon, like [pckt](https://pckt.blog)(**soon**), [Leaflet](https://leaflet.pub)(**soon**), and [Offprint](https://offprint.app)
+(also **soon**). 
 
 ## Features
 
@@ -338,8 +339,6 @@ npx tsx scripts/sync.ts
 
 - [standard.site specification](https://standard.site)
 - [ATProto documentation](https://atproto.com)
-- [Leaflet](https://leaflet.pub) — Blog platform using standard.site
-- [WhiteWind](https://whtwnd.com) — Markdown blog on ATProto
 - [pdsls.dev](https://pdsls.dev) — Browse ATProto repositories
 
 ## License
