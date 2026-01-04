@@ -1,6 +1,6 @@
 {
   "name": "astro-standard-site",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Astro Content Layer loader for standard.site - unified ATProto longform publishing",
   "repository": "github:musicjunkieg/astro-standard-site",
   "type": "module",
