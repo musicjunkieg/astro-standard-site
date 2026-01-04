@@ -1,0 +1,330 @@
+---
+/**
+ * Comments component for displaying federated ATProto comments
+ * 
+ * Fetches and displays comments from Bluesky (and future platforms)
+ * for a blog post. Comments are fetched at build time for static sites,
+ * or can be loaded client-side for dynamic updates.
+ * 
+ * @example
+ * ```astro
+ * ---
+ * import Comments from 'astro-standard-site/components/Comments.astro';
+ * ---
+ * 
+ * <Comments 
+ *   bskyPostUri="at://did:plc:xxx/app.bsky.feed.post/abc123"
+ *   canonicalUrl="https://bryanguffey.com/blog/my-post"
+ * />
+ * ```
+ */
+
+import type { Comment } from '../src/comments';
+import { fetchComments, countComments } from '../src/comments';
+
+interface Props {
+  /** AT-URI of the Bluesky announcement post */
+  bskyPostUri?: string;
+  /** Canonical URL of the blog post */
+  canonicalUrl?: string;
+  /** Maximum depth for nested replies */
+  maxDepth?: number;
+  /** Title for the comments section */
+  title?: string;
+  /** Whether to show the "reply on Bluesky" link */
+  showReplyLink?: boolean;
+  /** Custom class for styling */
+  class?: string;
+}
+
+const { 
+  bskyPostUri, 
+  canonicalUrl,
+  maxDepth = 3,
+  title = 'Comments',
+  showReplyLink = true,
+  class: className = '',
+} = Astro.props;
+
+// Fetch comments at build time
+let comments: Comment[] = [];
+let totalCount = 0;
+let error: string | null = null;
+
+try {
+  comments = await fetchComments({
+    bskyPostUri,
+    canonicalUrl,
+    maxDepth,
+  });
+  totalCount = countComments(comments);
+} catch (e) {
+  error = e instanceof Error ? e.message : 'Failed to load comments';
+  console.error('Comments fetch error:', e);
+}
+
+// Helper to format relative time
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+  });
+}
+
+// Get reply URL for Bluesky
+function getReplyUrl(): string | null {
+  if (!bskyPostUri) return null;
+  
+  // Parse the AT-URI to get handle and post ID
+  const match = bskyPostUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.post\/(.+)/);
+  if (!match) return null;
+  
+  const [, did, postId] = match;
+  // For DIDs, we'd need to resolve to handle, but for now use the intent URL
+  return `https://bsky.app/intent/compose?reply=${encodeURIComponent(bskyPostUri)}`;
+}
+
+const replyUrl = getReplyUrl();
+---
+
+<section class:list={['comments-section', className]}>
+  <header class="comments-header">
+    <h2 class="comments-title">
+      {title}
+      {totalCount > 0 && <span class="comments-count">({totalCount})</span>}
+    </h2>
+    
+    {showReplyLink && replyUrl && (
+      <a href={replyUrl} target="_blank" rel="noopener noreferrer" class="comments-reply-link">
+        Reply on Bluesky →
+      </a>
+    )}
+  </header>
+  
+  {error && (
+    <p class="comments-error">
+      Unable to load comments. <a href={bskyPostUri ? `https://bsky.app` : '#'}>View on Bluesky</a>
+    </p>
+  )}
+  
+  {!error && comments.length === 0 && (
+    <p class="comments-empty">
+      No comments yet. 
+      {replyUrl && (
+        <a href={replyUrl} target="_blank" rel="noopener noreferrer">
+          Be the first to reply on Bluesky!
+        </a>
+      )}
+    </p>
+  )}
+  
+  {!error && comments.length > 0 && (
+    <div class="comments-list">
+      {comments.map(function renderComment(comment: Comment, depth = 0) {
+        return (
+          <article class="comment" style={`--depth: ${depth}`}>
+            <header class="comment-header">
+              <a href={`https://bsky.app/profile/${comment.author.handle}`} 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 class="comment-author">
+                {comment.author.avatar && (
+                  <img 
+                    src={comment.author.avatar} 
+                    alt="" 
+                    class="comment-avatar"
+                    loading="lazy"
+                  />
+                )}
+                <span class="comment-author-name">
+                  {comment.author.displayName || comment.author.handle}
+                </span>
+                <span class="comment-author-handle">@{comment.author.handle}</span>
+              </a>
+              
+              <a href={comment.sourceUrl} 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 class="comment-time">
+                {formatRelativeTime(comment.createdAt)}
+              </a>
+            </header>
+            
+            <div class="comment-body">
+              <p>{comment.text}</p>
+            </div>
+            
+            {comment.likeCount !== undefined && comment.likeCount > 0 && (
+              <footer class="comment-footer">
+                <span class="comment-likes">♥ {comment.likeCount}</span>
+              </footer>
+            )}
+            
+            {comment.replies && comment.replies.length > 0 && (
+              <div class="comment-replies">
+                {comment.replies.map((reply: Comment) => renderComment(reply, depth + 1))}
+              </div>
+            )}
+          </article>
+        );
+      })}
+    </div>
+  )}
+  
+  <footer class="comments-footer">
+    <p class="comments-attribution">
+      Comments powered by <a href="https://bsky.app" target="_blank" rel="noopener noreferrer">Bluesky</a>
+      {' '}via <a href="https://standard.site" target="_blank" rel="noopener noreferrer">standard.site</a>
+    </p>
+  </footer>
+</section>
+
+<style>
+  .comments-section {
+    margin-top: var(--space-2xl, 3rem);
+    padding-top: var(--space-xl, 2rem);
+    border-top: 1px solid var(--color-border-soft, #30363d);
+  }
+  
+  .comments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg, 1.5rem);
+    flex-wrap: wrap;
+    gap: var(--space-md, 1rem);
+  }
+  
+  .comments-title {
+    font-size: 1.5rem;
+    margin: 0;
+  }
+  
+  .comments-count {
+    font-weight: normal;
+    color: var(--color-text-muted, #7d8590);
+  }
+  
+  .comments-reply-link {
+    font-size: 0.875rem;
+    color: var(--color-text-link, #7eb8da);
+  }
+  
+  .comments-error,
+  .comments-empty {
+    color: var(--color-text-secondary, #a8b2bd);
+    font-style: italic;
+  }
+  
+  .comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg, 1.5rem);
+  }
+  
+  .comment {
+    padding-left: calc(var(--depth, 0) * var(--space-lg, 1.5rem));
+  }
+  
+  .comment-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md, 1rem);
+    margin-bottom: var(--space-sm, 0.5rem);
+    flex-wrap: wrap;
+  }
+  
+  .comment-author {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm, 0.5rem);
+    text-decoration: none;
+    color: inherit;
+  }
+  
+  .comment-author:hover .comment-author-name {
+    color: var(--color-text-link, #7eb8da);
+  }
+  
+  .comment-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  
+  .comment-author-name {
+    font-weight: 600;
+    color: var(--color-text-primary, #e6edf3);
+  }
+  
+  .comment-author-handle {
+    font-size: 0.875rem;
+    color: var(--color-text-muted, #7d8590);
+  }
+  
+  .comment-time {
+    font-size: 0.875rem;
+    color: var(--color-text-muted, #7d8590);
+    margin-left: auto;
+  }
+  
+  .comment-body {
+    color: var(--color-text-secondary, #a8b2bd);
+    line-height: 1.6;
+  }
+  
+  .comment-body p {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  
+  .comment-footer {
+    margin-top: var(--space-sm, 0.5rem);
+  }
+  
+  .comment-likes {
+    font-size: 0.875rem;
+    color: var(--color-text-muted, #7d8590);
+  }
+  
+  .comment-replies {
+    margin-top: var(--space-md, 1rem);
+    padding-left: var(--space-md, 1rem);
+    border-left: 2px solid var(--color-border-soft, #30363d);
+  }
+  
+  .comments-footer {
+    margin-top: var(--space-xl, 2rem);
+    padding-top: var(--space-md, 1rem);
+    border-top: 1px solid var(--color-border-soft, #30363d);
+  }
+  
+  .comments-attribution {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+  }
+  
+  @media (max-width: 640px) {
+    .comment-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .comment-time {
+      margin-left: 0;
+    }
+  }
+</style>

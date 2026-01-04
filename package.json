@@ -1,0 +1,55 @@
+{
+  "name": "astro-standard-site",
+  "version": "0.1.0",
+  "description": "Astro Content Layer loader for standard.site - unified ATProto longform publishing",
+  "repository": "github:musicjunkieg/astro-standard-site",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./loader": {
+      "types": "./dist/loader.d.ts",
+      "import": "./dist/loader.js"
+    },
+    "./publisher": {
+      "types": "./dist/publisher.d.ts",
+      "import": "./dist/publisher.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "astro",
+    "astro-integration",
+    "atproto",
+    "bluesky",
+    "standard.site",
+    "leaflet",
+    "whitewind",
+    "blog",
+    "ssg"
+  ],
+  "author": "Bryan Guffey <bryan@makeworkbetter.io> (https://bryanguffey.com)",
+  "license": "MIT",
+  "peerDependencies": {
+    "astro": "^5.0.0"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.15.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
