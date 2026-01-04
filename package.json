@@ -1,7 +1,7 @@
 {
   "name": "@bryanguffey/astro-standard-site",
   "version": "1.0.0",
-  "description": "Astro Content Layer loader for standard.site - unified ATProto longform publishing",
+  "description": "Astro integration for standard.site - unified ATProto longform publishing",
   "keywords": [
     "astro",
     "astro-integration",
@@ -11,7 +11,9 @@
     "leaflet",
     "whitewind",
     "blog",
-    "ssg"
+    "ssg",
+    "comments",
+    "federation"
   ],
   "homepage": "https://github.com/musicjunkieg/astro-standard-site#readme",
   "bugs": {
@@ -23,7 +25,7 @@
   },
   "license": "MIT",
   "author": "Bryan Guffey <bryan@makeworkbetter.io> (https://bryanguffey.com)",
-  "type": "package",
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -36,17 +38,29 @@
     "./publisher": {
       "types": "./dist/publisher.d.ts",
       "import": "./dist/publisher.js"
-    }
+    },
+    "./content": {
+      "types": "./dist/content.d.ts",
+      "import": "./dist/content.js"
+    },
+    "./comments": {
+      "types": "./dist/comments.d.ts",
+      "import": "./dist/comments.js"
+    },
+    "./components/*": "./components/*"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "components",
     "README.md"
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "@atproto/api": "^0.15.0",
@@ -54,7 +68,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
   },
   "peerDependencies": {
     "astro": "^5.0.0"
