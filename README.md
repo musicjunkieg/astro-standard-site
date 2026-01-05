@@ -2,7 +2,7 @@
 
 Publish your Astro blog to the federated web. This package connects your blog to [ATProto](https://atproto.com/) (the protocol behind Bluesky) using the [standard.site](https://standard.site/) schema, enabling:
 
-- **Cross-platform publishing** — Your posts appear on Leaflet, WhiteWind, and other ATProto readers
+- **Cross-platform publishing** — Your posts appear on Leaflet, Pckt, and other ATProto readers, if enabled
 - **Federated comments** — Display Bluesky replies as comments on your blog
 - **Verified ownership** — Prove you own your content with cryptographic verification
 
@@ -143,45 +143,7 @@ ATPROTO_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" npx tsx scripts/create-publication.ts
 
 Create a sync script to publish your Astro posts:
 
-```ts
-// scripts/sync-to-atproto.ts
-import { StandardSitePublisher, transformContent } from '@bryanguffey/astro-standard-site';
-import { getCollection } from 'astro:content';
-
-const publisher = new StandardSitePublisher({
-  handle: 'you.bsky.social',
-  appPassword: process.env.ATPROTO_APP_PASSWORD!,
-});
-
-await publisher.login();
-
-const posts = await getCollection('blog');
-
-for (const post of posts) {
-  // Transform content for ATProto compatibility
-  const transformed = transformContent(post.body, {
-    baseUrl: 'https://yourblog.com',
-  });
-
-  const result = await publisher.publishDocument({
-    site: 'https://yourblog.com',
-    path: `/blog/${post.slug}`,
-    title: post.data.title,
-    description: post.data.description,
-    content: {
-      $type: 'site.standard.content.markdown',
-      text: transformed.markdown,
-      version: '1.0',
-    },
-    textContent: transformed.textContent,
-    publishedAt: post.data.date.toISOString(),
-    tags: post.data.tags,
-  });
-
-  console.log(`Published: ${post.data.title}`);
-  console.log(`  → ${result.uri}`);
-}
-```
+see example in scripts/sync-to-atproto.ts
 
 ### Set Up Verification
 
@@ -196,7 +158,7 @@ export const GET: APIRoute = () => {
   return new Response(
     generatePublicationWellKnown({
       did: 'did:plc:your-did-here',           // Your DID
-      publicationRkey: '3abc123xyz789',        // From create-publication output
+      publicationRkey: 'your-rkey-here',        // From create-publication output
     }),
     { headers: { 'Content-Type': 'text/plain' } }
   );
@@ -566,7 +528,7 @@ This package implements the [standard.site](https://standard.site/) specificatio
 - [ATProto documentation](https://atproto.com/)
 - [Bluesky](https://bsky.app/)
 - [Leaflet](https://leaflet.pub/) — ATProto blog reader
-- [WhiteWind](https://whitewind.pages.dev/) — Another ATProto blog platform
+- [Pckt](https://pckt.blog) — Another ATProto blog platform
 - [pdsls.dev](https://pdsls.dev/) — Browse ATProto records
 
 ---
