@@ -1,347 +1,575 @@
 # astro-standard-site
 
-The first Astro integration for [standard.site](https://standard.site) — a unified schema for longform publishing on ATProto.
+Publish your Astro blog to the federated web. This package connects your blog to [ATProto](https://atproto.com/) (the protocol behind Bluesky) using the [standard.site](https://standard.site/) schema, enabling:
 
-**Write once, publish everywhere.** Sync your Astro blog with any platform that supports the standard.site lexicon, like [pckt](https://pckt.blog)(**soon**), [Leaflet](https://leaflet.pub)(**soon**), and [Offprint](https://offprint.app)
-(also **soon**). 
+- **Cross-platform publishing** — Your posts appear on Leaflet, WhiteWind, and other ATProto readers
+- **Federated comments** — Display Bluesky replies as comments on your blog
+- **Verified ownership** — Prove you own your content with cryptographic verification
 
-Created with love by Bryan Guffey
-
-## Features
-
-- 📤 **Publish** — Sync your Astro blog posts to ATProto
-- 📥 **Load** — Fetch documents from any ATProto repository  
-- 💬 **Comments** — Display Bluesky replies as comments on your blog
-- 🔄 **Transform** — Convert sidenotes, resolve relative links, extract plain text
-- ✅ **Verify** — Generate `.well-known` endpoints and link tags per spec
-- 📝 **Type-safe** — Full TypeScript support with Zod schemas
-
+Created with love by *Bryan Guffey*
 ## Installation
 
 ```bash
-npm install astro-standard-site
+npm install @bryanguffey/astro-standard-site
 ```
+
+## Use Cases
+
+This package supports multiple workflows:
+
+| You want to... | Use |
+|----------------|-----|
+| Show Bluesky replies as comments | `<Comments />` component |
+| Publish Astro posts to ATProto | `StandardSitePublisher` |
+| Pull ATProto posts into Astro | `standardSiteLoader` |
+| Verify you own your content | Verification helpers |
+
+You can mix and match — use comments without publishing, or publish without loading, etc.
 
 ## Quick Start
 
-### 1. Publish Your Blog Posts to ATProto
+### 1. Display Bluesky Comments on Your Blog
 
-```ts
-// scripts/sync-to-atproto.ts
-import { getCollection } from 'astro:content';
-import { StandardSitePublisher, transformPost } from 'astro-standard-site';
+The fastest way to get started — add federated comments to your existing posts.
 
-const publisher = new StandardSitePublisher({
-  identifier: 'your-handle.bsky.social',
-  password: process.env.ATPROTO_APP_PASSWORD!,
-});
-
-await publisher.login();
-console.log('Logged in! PDS:', publisher.getPdsUrl());
-
-// Get all blog posts
-const posts = await getCollection('blog');
-
-for (const post of posts) {
-  if (post.data.draft) continue;
-  
-  // Transform Astro post to standard.site format
-  const doc = transformPost(post, { 
-    siteUrl: 'https://yourblog.com' 
-  });
-  
-  // Publish to ATProto
-  const result = await publisher.publishDocument(doc);
-  console.log(`Published: ${post.slug} → ${result.uri}`);
-}
-```
-
-### 2. Add Comments from Bluesky
+**Add to your blog post layout:**
 
 ```astro
 ---
 // src/layouts/BlogPost.astro
-import Comments from 'astro-standard-site/components/Comments.astro';
+import Comments from '@bryanguffey/astro-standard-site/components/Comments.astro';
 
-// After publishing, save the Bluesky post URI in your frontmatter
-const { bskyPostUri } = Astro.props.post.data;
+const { bskyPostUri } = Astro.props.frontmatter;
 ---
 
 <article>
   <slot />
 </article>
 
-<Comments 
-  bskyPostUri={bskyPostUri}
-  canonicalUrl={Astro.url.href}
-/>
+{bskyPostUri && (
+  <Comments 
+    bskyPostUri={bskyPostUri}
+    canonicalUrl={Astro.url.href}
+  />
+)}
 ```
 
-### 3. Set Up Verification
+**Add the field to your content schema:**
+
+```ts
+// src/content/config.ts
+import { defineCollection, z } from 'astro:content';
+
+const blog = defineCollection({
+  schema: z.object({
+    title: z.string(),
+    date: z.date(),
+    // ... your existing fields
+    bskyPostUri: z.string().optional(),
+  }),
+});
+
+export const collections = { blog };
+```
+
+**Link a post to Bluesky:**
+
+1. Publish your blog post
+2. Share it on Bluesky
+3. Copy the post's AT-URI (click ··· → "Copy post link", then convert to AT-URI format)
+4. Add it to your post's frontmatter:
+
+```yaml
+---
+title: "My First Federated Post"
+date: 2026-01-15
+bskyPostUri: "at://did:plc:your-did/app.bsky.feed.post/abc123def"
+---
+```
+
+5. Rebuild your site — comments now appear!
+
+> **Tip:** To get the AT-URI from a Bluesky URL like `https://bsky.app/profile/you.bsky.social/post/abc123def`, the format is `at://did:plc:YOUR_DID/app.bsky.feed.post/abc123def`. You can find your DID at [bsky.app/settings](https://bsky.app/settings).
+
+---
+
+## Full Setup: Publish to ATProto
+
+To publish your posts *to* ATProto (not just display comments), you'll need:
+
+1. A Bluesky account (or any ATProto PDS)
+2. An [app password](https://bsky.app/settings/app-passwords)
+
+### Create a Publication
+
+First, create a publication record that represents your blog:
+
+```ts
+// scripts/create-publication.ts
+import { StandardSitePublisher } from '@bryanguffey/astro-standard-site';
+
+const publisher = new StandardSitePublisher({
+  handle: 'you.bsky.social',
+  appPassword: process.env.ATPROTO_APP_PASSWORD!,
+});
+
+await publisher.login();
+
+const result = await publisher.publishPublication({
+  name: 'My Awesome Blog',
+  url: 'https://yourblog.com',
+  description: 'Thoughts on code, life, and everything',
+  // Optional: customize your theme colors (RGB 0-255)
+  basicTheme: {
+    background: { r: 13, g: 17, b: 23 },
+    foreground: { r: 230, g: 237, b: 243 },
+    accent: { r: 74, g: 124, b: 155 },
+    accentForeground: { r: 255, g: 255, b: 255 },
+  },
+});
+
+console.log('Publication created!');
+console.log('AT-URI:', result.uri);
+console.log('Save this rkey for verification:', result.uri.split('/').pop());
+```
+
+Run it once:
+
+```bash
+ATPROTO_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" npx tsx scripts/create-publication.ts
+```
+
+### Publish Posts
+
+Create a sync script to publish your Astro posts:
+
+```ts
+// scripts/sync-to-atproto.ts
+import { StandardSitePublisher, transformContent } from '@bryanguffey/astro-standard-site';
+import { getCollection } from 'astro:content';
+
+const publisher = new StandardSitePublisher({
+  handle: 'you.bsky.social',
+  appPassword: process.env.ATPROTO_APP_PASSWORD!,
+});
+
+await publisher.login();
+
+const posts = await getCollection('blog');
+
+for (const post of posts) {
+  // Transform content for ATProto compatibility
+  const transformed = transformContent(post.body, {
+    baseUrl: 'https://yourblog.com',
+  });
+
+  const result = await publisher.publishDocument({
+    site: 'https://yourblog.com',
+    path: `/blog/${post.slug}`,
+    title: post.data.title,
+    description: post.data.description,
+    content: {
+      $type: 'site.standard.content.markdown',
+      text: transformed.markdown,
+      version: '1.0',
+    },
+    textContent: transformed.textContent,
+    publishedAt: post.data.date.toISOString(),
+    tags: post.data.tags,
+  });
+
+  console.log(`Published: ${post.data.title}`);
+  console.log(`  → ${result.uri}`);
+}
+```
+
+### Set Up Verification
+
+Verification lets platforms confirm you own the content. Create a well-known endpoint:
 
 ```ts
 // src/pages/.well-known/site.standard.publication.ts
 import type { APIRoute } from 'astro';
-import { generatePublicationWellKnown } from 'astro-standard-site';
+import { generatePublicationWellKnown } from '@bryanguffey/astro-standard-site';
 
 export const GET: APIRoute = () => {
   return new Response(
     generatePublicationWellKnown({
-      did: 'did:plc:your-did-here',
-      publicationRkey: 'your-publication-rkey',
+      did: 'did:plc:your-did-here',           // Your DID
+      publicationRkey: '3abc123xyz789',        // From create-publication output
     }),
     { headers: { 'Content-Type': 'text/plain' } }
   );
 };
 ```
 
+After deploying, verify it works:
+
+```bash
+curl https://yourblog.com/.well-known/site.standard.publication
+# Should output: at://did:plc:xxx/site.standard.publication/3abc123xyz789
+```
+
+---
+
+## Components
+
+### `<Comments />`
+
+Displays Bluesky replies as a comment section.
+
+```astro
+<Comments 
+  bskyPostUri="at://did:plc:xxx/app.bsky.feed.post/abc123"
+  canonicalUrl="https://yourblog.com/post/my-post"
+  maxDepth={3}
+  title="Discussion"
+  showReplyLink={true}
+  class="my-custom-class"
+/>
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `bskyPostUri` | `string` | — | AT-URI of the Bluesky announcement post |
+| `canonicalUrl` | `string` | — | URL of your blog post (for mention search) |
+| `maxDepth` | `number` | `3` | Maximum nesting depth for replies |
+| `title` | `string` | `"Comments"` | Section heading |
+| `showReplyLink` | `boolean` | `true` | Show "Reply on Bluesky" link |
+| `class` | `string` | — | Custom CSS class |
+
+**Styling:** The component uses CSS custom properties that inherit from your site's theme:
+
+```css
+--color-border-soft
+--color-text-primary
+--color-text-secondary
+--color-text-muted
+--color-text-link
+--color-bg-elevated
+--space-xs, --space-sm, --space-md, --space-lg, --space-xl, --space-2xl
+```
+
+---
+
 ## API Reference
 
-### Publisher
+### `StandardSitePublisher`
+
+Handles authentication and publishing to ATProto.
 
 ```ts
-import { StandardSitePublisher } from 'astro-standard-site';
+import { StandardSitePublisher } from '@bryanguffey/astro-standard-site';
 
 const publisher = new StandardSitePublisher({
-  identifier: 'handle.bsky.social',  // or DID
-  password: process.env.ATPROTO_APP_PASSWORD!,
-  // service: 'https://...'  // Optional: auto-resolved from DID
+  handle: 'you.bsky.social',      // Your handle
+  appPassword: 'xxxx-xxxx-xxxx',  // App password (not your main password!)
+  // Optional: specify PDS directly (auto-resolved from DID by default)
+  pdsUrl: 'https://bsky.social',
 });
 
 await publisher.login();
+```
 
-// Publish a document
-await publisher.publishDocument({
-  site: 'https://yourblog.com',        // Required
-  title: 'My Post',                     // Required
-  publishedAt: new Date().toISOString(), // Required
-  path: '/blog/my-post',               // Optional
-  description: 'A great post',         // Optional
-  tags: ['tag1', 'tag2'],              // Optional
-  textContent: 'Plain text...',        // Optional (for search)
-  content: {                           // Optional (for rendering)
+#### `publishDocument(input)`
+
+Publish a blog post.
+
+```ts
+const result = await publisher.publishDocument({
+  // Required
+  site: 'https://yourblog.com',
+  title: 'My Post Title',
+  publishedAt: '2026-01-15T12:00:00Z',
+  
+  // Recommended
+  path: '/blog/my-post',
+  description: 'A short excerpt...',
+  content: {
     $type: 'site.standard.content.markdown',
-    text: '# My Post\n\nFull markdown...',
+    text: '# Full markdown content...',
+    version: '1.0',
   },
+  textContent: 'Plain text version for search indexing',
+  
+  // Optional
+  updatedAt: '2026-01-16T12:00:00Z',
+  tags: ['astro', 'atproto'],
 });
 
-// Publish a publication (your blog itself)
-await publisher.publishPublication({
+console.log(result.uri);  // at://did:plc:xxx/site.standard.document/3abc...
+console.log(result.cid);  // Content hash
+```
+
+#### `publishPublication(input)`
+
+Create or update your publication metadata.
+
+```ts
+const result = await publisher.publishPublication({
   name: 'My Blog',
   url: 'https://yourblog.com',
-  description: 'Thoughts and writings',
+  description: 'What this blog is about',
+  basicTheme: {
+    background: { r: 255, g: 255, b: 255 },
+    foreground: { r: 0, g: 0, b: 0 },
+    accent: { r: 0, g: 102, b: 204 },
+    accentForeground: { r: 255, g: 255, b: 255 },
+  },
+  preferences: {
+    showInDiscover: true,
+  },
 });
-
-// List, update, delete
-const docs = await publisher.listDocuments();
-await publisher.updateDocument('rkey', { ...updatedData });
-await publisher.deleteDocument('rkey');
 ```
 
-### Content Transformation
+### `transformContent(markdown, options)`
+
+Transform markdown for ATProto compatibility.
 
 ```ts
-import { 
-  transformPost,      // Full Astro post transformation
-  transformContent,   // Just the markdown body
-  stripToPlainText,   // Extract plain text for textContent
-  convertSidenotes,   // HTML sidenotes → markdown blockquotes
-} from 'astro-standard-site';
+import { transformContent } from '@bryanguffey/astro-standard-site';
 
-// Transform an Astro blog post
-const doc = transformPost(post, { siteUrl: 'https://yourblog.com' });
-
-// Or transform just the content
-const { markdown, textContent, wordCount, readingTime } = transformContent(
-  rawMarkdown,
-  { siteUrl: 'https://yourblog.com' }
-);
-```
-
-#### Sidenote Conversion
-
-Your HTML sidenotes:
-```html
-<div class="sidenote sidenote--tip">
-  <span class="sidenote-label">Tip</span>
-  <p>This is helpful!</p>
-</div>
-```
-
-Become markdown blockquotes:
-```markdown
-> **Tip:** This is helpful!
-```
-
-### Comments
-
-```ts
-import { fetchComments, countComments } from 'astro-standard-site';
-
-// Fetch from a Bluesky post thread
-const comments = await fetchComments({
-  bskyPostUri: 'at://did:plc:xxx/app.bsky.feed.post/abc123',
-  canonicalUrl: 'https://yourblog.com/post',  // Also searches for mentions
-  maxDepth: 3,
+const result = transformContent(markdownString, {
+  baseUrl: 'https://yourblog.com',  // For resolving relative links
 });
 
-console.log(`${countComments(comments)} comments found`);
-
-// Comments are returned as a tree structure
-for (const comment of comments) {
-  console.log(`${comment.author.handle}: ${comment.text}`);
-  for (const reply of comment.replies || []) {
-    console.log(`  ↳ ${reply.author.handle}: ${reply.text}`);
-  }
-}
+result.markdown;      // Cleaned markdown (sidenotes converted, links resolved)
+result.textContent;   // Plain text for search indexing
+result.wordCount;     // Number of words
+result.readingTime;   // Estimated minutes to read
 ```
 
-### Loader (Fetch from ATProto)
+**What it does:**
+
+- Converts HTML sidenotes to markdown blockquotes
+- Resolves relative links (`/about` → `https://yourblog.com/about`)
+- Strips markdown to plain text for the `textContent` field
+- Calculates word count and reading time
+
+### `standardSiteLoader(config)`
+
+Astro Content Layer loader — pull YOUR content written on other platforms (Leaflet, WhiteWind) into your Astro blog.
+
+**Primary use case:** You write posts on Leaflet, and want them to appear on your Astro site — but NOT the posts you published *from* your Astro site to ATProto.
 
 ```ts
 // src/content/config.ts
 import { defineCollection } from 'astro:content';
-import { standardSiteLoader } from 'astro-standard-site';
+import { standardSiteLoader } from '@bryanguffey/astro-standard-site';
 
-// Load documents from any ATProto account
-const externalBlog = defineCollection({
-  loader: standardSiteLoader({ 
-    repo: 'someone.bsky.social',
-    // publication: 'at://...',  // Optional: filter by publication
-    // limit: 50,                 // Optional: max documents
+const federated = defineCollection({
+  loader: standardSiteLoader({
+    repo: 'me.bsky.social',              // Your ATProto handle or DID
+    excludeSite: 'https://myblog.com',   // Skip posts published FROM your Astro blog
   }),
 });
 
-export const collections = { externalBlog };
+export const collections = { federated };
 ```
 
-### Verification
+| Option | Type | Description |
+|--------|------|-------------|
+| `repo` | `string` | **Required.** ATProto handle or DID to load from |
+| `excludeSite` | `string` | Skip documents with this site URL (your blog) |
+| `publication` | `string` | Only load documents from this specific site |
+| `limit` | `number` | Max documents to fetch (default: 100) |
+| `service` | `string` | PDS endpoint (default: public API) |
+
+**Using loaded documents:**
+
+```astro
+---
+// src/pages/federated/[...slug].astro
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('federated');
+---
+
+{posts.map(post => (
+  <article>
+    <h2><a href={post.data.url}>{post.data.title}</a></h2>
+    <time>{post.data.publishedAt.toLocaleDateString()}</time>
+    <p>{post.data.description}</p>
+    
+    {/* For plain text display */}
+    {post.data.textContent && (
+      <div>{post.data.textContent}</div>
+    )}
+    
+    {/* Or handle markdown content specifically */}
+    {post.data.content?.$type === 'site.standard.content.markdown' && (
+      <div set:html={marked(post.data.content.text)} />
+    )}
+  </article>
+))}
+```
+
+**Loaded document fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Record key (TID) |
+| `uri` | `string` | Full AT-URI |
+| `title` | `string` | Document title |
+| `site` | `string` | Source publication URL |
+| `publishedAt` | `Date` | Publication date |
+| `path` | `string?` | Path segment |
+| `url` | `string?` | Full URL (site + path) |
+| `description` | `string?` | Excerpt |
+| `tags` | `string[]` | Categories |
+| `textContent` | `string?` | Plain text for display/search |
+| `content` | `unknown` | Platform-specific content (see below) |
+| `_raw` | `Document` | Full raw record |
+
+**About the `content` field:**
+
+The `content` field is an open union — different platforms use different types. Use `textContent` for simple display, or check `content.$type` for rich rendering:
+
+```ts
+// Markdown content (Leaflet, this package)
+if (post.data.content?.$type === 'site.standard.content.markdown') {
+  const markdown = post.data.content.text;
+}
+
+// Or just use textContent for plain text
+const plainText = post.data.textContent;
+```
+
+### `publicationLoader(config)`
+
+Load publication metadata (blog info, not posts):
+
+```ts
+const publications = defineCollection({
+  loader: publicationLoader({ repo: 'someone.bsky.social' }),
+});
+```
+
+### `fetchComments(options)`
+
+Fetch comments programmatically (used internally by the Comments component).
+
+```ts
+import { fetchComments } from '@bryanguffey/astro-standard-site';
+
+const comments = await fetchComments({
+  bskyPostUri: 'at://did:plc:xxx/app.bsky.feed.post/abc123',
+  canonicalUrl: 'https://yourblog.com/post/my-post',
+  maxDepth: 3,
+});
+
+// Returns array of Comment objects with nested replies
+```
+
+### Verification Helpers
 
 ```ts
 import { 
   generatePublicationWellKnown,
   generateDocumentLinkTag,
-} from 'astro-standard-site';
+  getDocumentAtUri,
+  getPublicationAtUri,
+  parseAtUri,
+} from '@bryanguffey/astro-standard-site';
 
-// For /.well-known/site.standard.publication
-const wellKnown = generatePublicationWellKnown({
-  did: 'did:plc:xxx',
-  publicationRkey: 'my-blog',
-});
-// Returns: "at://did:plc:xxx/site.standard.publication/my-blog"
+// For /.well-known/site.standard.publication endpoint
+generatePublicationWellKnown({ did: '...', publicationRkey: '...' });
+// → "at://did:plc:xxx/site.standard.publication/abc123"
 
-// For document <head>
-const linkTag = generateDocumentLinkTag({
-  did: 'did:plc:xxx',
-  documentRkey: 'abc123',
-});
-// Returns: '<link rel="site.standard.document" href="at://did:plc:xxx/site.standard.document/abc123">'
+// For <head> tag to verify individual documents
+generateDocumentLinkTag({ did: '...', documentRkey: '...' });
+// → '<link rel="site.standard.document" href="at://...">'
+
+// Build AT-URIs
+getDocumentAtUri('did:plc:xxx', '3abc123');
+// → "at://did:plc:xxx/site.standard.document/3abc123"
+
+// Parse AT-URIs
+parseAtUri('at://did:plc:xxx/site.standard.document/3abc123');
+// → { did: 'did:plc:xxx', collection: 'site.standard.document', rkey: '3abc123' }
 ```
 
-## The standard.site Lexicon
+---
 
-This package implements the full [standard.site](https://standard.site) specification:
+## Workflow Tips
 
-### `site.standard.publication`
-Represents your blog/publication:
-- `url` (required) — Base URL
-- `name` (required) — Publication name
-- `description` — Brief description
-- `icon` — Square image (256x256+, max 1MB)
-- `basicTheme` — Color theme for platforms
-- `preferences` — Platform-specific settings
+### Getting Your DID
 
-### `site.standard.document`
-Represents a blog post:
-- `site` (required) — Publication URL or AT-URI
-- `title` (required) — Post title
-- `publishedAt` (required) — ISO 8601 datetime
-- `path` — URL path (combines with site)
-- `description` — Excerpt/summary
-- `tags` — Array of tags
-- `updatedAt` — Last modified datetime
-- `coverImage` — Hero image (max 1MB)
-- `textContent` — Plain text for search/indexing
-- `content` — Rich content (open union, platform-specific)
-- `bskyPostRef` — Link to Bluesky announcement post
+Your DID is your permanent identifier on ATProto. Find it at:
+- [bsky.app/settings](https://bsky.app/settings) → scroll to "DID"
+- Or: `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=you.bsky.social`
 
-## Workflow: Full Blog Sync
+### Getting AT-URIs from Bluesky URLs
 
-Here's a complete workflow for syncing your Astro blog:
-
-```ts
-// scripts/sync.ts
-import { getCollection } from 'astro:content';
-import { 
-  StandardSitePublisher, 
-  transformPost,
-} from 'astro-standard-site';
-
-async function sync() {
-  const publisher = new StandardSitePublisher({
-    identifier: process.env.ATPROTO_IDENTIFIER!,
-    password: process.env.ATPROTO_APP_PASSWORD!,
-  });
-  
-  await publisher.login();
-  const did = publisher.getDid();
-  
-  // First, ensure publication exists
-  const pubs = await publisher.listPublications();
-  if (pubs.length === 0) {
-    await publisher.publishPublication({
-      name: 'My Blog',
-      url: 'https://myblog.com',
-      description: 'My thoughts and writings',
-      rkey: 'my-blog',
-    });
-  }
-  
-  // Get existing documents
-  const existing = await publisher.listDocuments();
-  const existingByPath = new Map(
-    existing.map(d => [d.value.path, d])
-  );
-  
-  // Sync all posts
-  const posts = await getCollection('blog');
-  
-  for (const post of posts) {
-    if (post.data.draft) continue;
-    
-    const doc = transformPost(post, { siteUrl: 'https://myblog.com' });
-    const existingDoc = existingByPath.get(doc.path);
-    
-    if (existingDoc) {
-      // Update existing
-      const rkey = existingDoc.uri.split('/').pop()!;
-      await publisher.updateDocument(rkey, doc);
-      console.log(`Updated: ${post.slug}`);
-    } else {
-      // Create new
-      const result = await publisher.publishDocument(doc);
-      console.log(`Created: ${post.slug} → ${result.uri}`);
-    }
-  }
-  
-  console.log('Sync complete!');
-}
-
-sync().catch(console.error);
+Bluesky web URLs look like:
+```
+https://bsky.app/profile/you.bsky.social/post/3abc123xyz
 ```
 
-Run with:
-```bash
-ATPROTO_IDENTIFIER="you.bsky.social" \
-ATPROTO_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" \
-npx tsx scripts/sync.ts
+The AT-URI format is:
+```
+at://did:plc:YOUR_DID/app.bsky.feed.post/3abc123xyz
 ```
 
-## Resources
+### Viewing Your Published Content
 
-- [standard.site specification](https://standard.site)
-- [ATProto documentation](https://atproto.com)
-- [pdsls.dev](https://pdsls.dev) — Browse ATProto repositories
+After publishing, view your records at:
+- `https://pdsls.dev/at://YOUR_DID/site.standard.publication`
+- `https://pdsls.dev/at://YOUR_DID/site.standard.document`
+
+### Comments Appear at Build Time
+
+Comments are fetched when you build your site (static). To show new comments, rebuild and redeploy. For high-traffic sites, consider scheduled rebuilds or on-demand ISR.
+
+---
+
+## Troubleshooting
+
+### "Failed to resolve handle"
+
+- Check your handle is correct
+- Verify your PDS is reachable
+- Make sure you're using an app password, not your main password
+
+### "Schema validation failed" / "invalid TID"
+
+Record keys must be TIDs (timestamp identifiers). The package generates these automatically — if you see this error, you may be using an older version or passing a custom rkey.
+
+### Comments not appearing
+
+1. Verify the `bskyPostUri` is correct (AT-URI format, not web URL)
+2. Check the Bluesky post exists and has public replies
+3. Rebuild your site after adding the URI
+
+### Verification endpoint returning 404
+
+- Ensure the file is at `src/pages/.well-known/site.standard.publication.ts`
+- The `.well-known` folder needs to be inside `pages/`
+- Check your hosting platform allows `.well-known` paths
+
+---
+
+## How It Works
+
+This package implements the [standard.site](https://standard.site/) specification, which defines a common schema for longform content on ATProto. This means:
+
+1. **Your content is portable** — It lives in your ATProto repository, not locked to any platform
+2. **Multiple readers** — Leaflet, WhiteWind, and future apps can all display your posts
+3. **Federated engagement** — Comments and likes from any ATProto app appear on your blog
+4. **Verified ownership** — The `.well-known` endpoint proves you control the content
+
+---
+
+## Links
+
+- [standard.site specification](https://standard.site/)
+- [ATProto documentation](https://atproto.com/)
+- [Bluesky](https://bsky.app/)
+- [Leaflet](https://leaflet.pub/) — ATProto blog reader
+- [WhiteWind](https://whitewind.pages.dev/) — Another ATProto blog platform
+- [pdsls.dev](https://pdsls.dev/) — Browse ATProto records
+
+---
 
 ## License
 

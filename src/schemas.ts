@@ -185,6 +185,15 @@ export const LoaderConfigSchema = z.object({
   /** PDS service URL (defaults to public.api.bsky.app for reads) */
   service: z.string().url().default('https://public.api.bsky.app'),
   
+  /** 
+   * Exclude documents from this site URL.
+   * Primary use case: exclude posts you published FROM your Astro blog,
+   * so you only load posts written on other platforms (Leaflet, WhiteWind).
+   * 
+   * @example excludeSite: 'https://myblog.com'
+   */
+  excludeSite: z.string().optional(),
+  
   /** Only load documents from a specific site/publication URI */
   publication: z.string().optional(),
   
