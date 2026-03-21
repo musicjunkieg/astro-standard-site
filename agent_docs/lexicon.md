@@ -4,7 +4,7 @@
 
 standard.site is a unified schema for longform publishing on ATProto, enabling interop between Leaflet, WhiteWind, and other platforms.
 
-**Spec:** https://standard.site/  
+**Spec:** https://standard.site/
 **Lexicon records:** `at://did:plc:re3ebnp5v7ffagz6rb6xfei4/com.atproto.lexicon.schema/site.standard.*`
 
 ## site.standard.document
@@ -15,23 +15,24 @@ Individual blog post or article.
 
 ### Required Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `site` | string | Publication URL or AT-URI |
-| `title` | string | Document title |
-| `publishedAt` | datetime | ISO 8601 timestamp |
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `site` | string | | Publication URL or AT-URI. Avoid trailing slashes. |
+| `title` | string | maxLength: 5000, maxGraphemes: 500 | Document title |
+| `publishedAt` | datetime | | ISO 8601 timestamp |
 
 ### Optional Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `path` | string | Path to append to site URL |
-| `description` | string | Excerpt/summary |
-| `updatedAt` | datetime | Last modified |
-| `tags` | string[] | Categories |
-| `textContent` | string | Plain text for search |
-| `content` | union | Platform-specific content (open union) |
-| `bskyPostRef` | strongRef | Link to announcement post |
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `path` | string | must begin with `/` | Path to append to site URL |
+| `description` | string | maxLength: 30000, maxGraphemes: 3000 | Excerpt/summary |
+| `updatedAt` | datetime | | Last modified |
+| `tags` | string[] | maxLength: 1280, maxGraphemes: 128 per tag | Categories (no `#` prefix) |
+| `textContent` | string | | Plain text for search |
+| `content` | union | open union | Platform-specific content |
+| `coverImage` | blob | less than 1MB | Thumbnail or cover image |
+| `bskyPostRef` | strongRef | | Link to announcement post |
 
 ### Content Field
 
@@ -56,20 +57,23 @@ Publication metadata (the blog itself, not individual posts).
 
 ### Required Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Publication name |
-| `url` | string | Base URL |
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `name` | string | maxLength: 5000, maxGraphemes: 500 | Publication name |
+| `url` | string | avoid trailing slashes | Base URL |
 
 ### Optional Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `description` | string | About the publication |
-| `basicTheme` | object | Theme colors (see below) |
-| `preferences` | object | Display preferences |
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `icon` | blob | min 256x256 | Square image for the publication |
+| `description` | string | maxLength: 30000, maxGraphemes: 3000 | About the publication |
+| `basicTheme` | ref | site.standard.theme.basic | Theme colors (see below) |
+| `preferences` | object | | Display preferences |
 
-### basicTheme
+### basicTheme (`site.standard.theme.basic`)
+
+All four color fields are **required**:
 
 ```ts
 {
@@ -80,13 +84,32 @@ Publication metadata (the blog itself, not individual posts).
 }
 ```
 
-RGB values 0-255.
+RGB values 0-255. RGBA also supported with `a: 0-100`.
 
 ### preferences
 
 ```ts
 {
   showInDiscover?: boolean  // Show in platform discovery feeds
+}
+```
+
+## site.standard.graph.subscription
+
+Tracks relationships between users and publications. Enables follow features and personalized feeds.
+
+### Required Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `publication` | at-uri | AT-URI reference to the publication record being subscribed to |
+
+### Example
+
+```json
+{
+  "$type": "site.standard.graph.subscription",
+  "publication": "at://did:plc:abc123/site.standard.publication/3lwafzkjqm25s"
 }
 ```
 

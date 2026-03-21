@@ -29,7 +29,7 @@
  */
 
 import { AtpAgent, RichText } from '@atproto/api';
-import type { PublisherConfig, Document, Publication } from './schemas.js';
+import type { PublisherConfig, Document, Publication, Subscription } from './schemas.js';
 import { PublisherConfigSchema, COLLECTIONS } from './schemas.js';
 
 /**
@@ -414,6 +414,67 @@ export class StandardSitePublisher {
     }));
   }
   
+  /**
+   * Create a subscription to a publication
+   */
+  async createSubscription(publicationUri: string): Promise<PublishResult> {
+    const did = this.getDid();
+    const agent = this.getAgent();
+
+    const record: Subscription = {
+      $type: 'site.standard.graph.subscription',
+      publication: publicationUri,
+    };
+
+    const rkey = generateTid();
+
+    const response = await agent.api.com.atproto.repo.createRecord({
+      repo: did,
+      collection: COLLECTIONS.SUBSCRIPTION,
+      rkey,
+      record,
+    });
+
+    return {
+      uri: response.data.uri,
+      cid: response.data.cid,
+    };
+  }
+
+  /**
+   * Delete a subscription
+   */
+  async deleteSubscription(rkey: string): Promise<void> {
+    const did = this.getDid();
+    const agent = this.getAgent();
+
+    await agent.api.com.atproto.repo.deleteRecord({
+      repo: did,
+      collection: COLLECTIONS.SUBSCRIPTION,
+      rkey,
+    });
+  }
+
+  /**
+   * List all subscriptions for the current account
+   */
+  async listSubscriptions(limit = 100): Promise<Array<{ uri: string; cid: string; value: Subscription }>> {
+    const did = this.getDid();
+    const agent = this.getAgent();
+
+    const response = await agent.api.com.atproto.repo.listRecords({
+      repo: did,
+      collection: COLLECTIONS.SUBSCRIPTION,
+      limit,
+    });
+
+    return response.data.records.map(r => ({
+      uri: r.uri,
+      cid: r.cid,
+      value: r.value as Subscription,
+    }));
+  }
+
   /**
    * Get the underlying ATP agent for advanced operations
    */

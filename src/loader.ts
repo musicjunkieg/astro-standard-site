@@ -19,12 +19,13 @@
  */
 
 import { AtpAgent } from '@atproto/api';
-import type { LoaderConfig, Document, Publication } from './schemas.js';
-import { 
-  LoaderConfigSchema, 
-  DocumentSchema, 
+import type { LoaderConfig, Document, Publication, Subscription } from './schemas.js';
+import {
+  LoaderConfigSchema,
+  DocumentSchema,
   PublicationSchema,
-  COLLECTIONS 
+  SubscriptionSchema,
+  COLLECTIONS
 } from './schemas.js';
 
 export interface StandardSiteDocument {
@@ -236,8 +237,7 @@ export function standardSiteLoader(config: Partial<LoaderConfig>) {
       publishedAt: { type: 'date' as const, optional: true },
       updatedAt: { type: 'date' as const, optional: true },
       tags: { type: 'array' as const, items: { type: 'string' as const } },
-      visibility: { type: 'string' as const, enum: ['public', 'unlisted', 'private'] },
-      publication: { type: 'string' as const, optional: true },
+      site: { type: 'string' as const, optional: true },
     }),
   };
 }
@@ -318,6 +318,94 @@ export function publicationLoader(config: { repo: string; service?: string }) {
         logger.info(`Loaded ${response.data.records.length} publications`);
       } catch (err) {
         logger.error(`Failed to load publications: ${err}`);
+        throw err;
+      }
+    },
+  };
+}
+
+export interface StandardSiteSubscription {
+  /** Unique ID derived from the record key */
+  id: string;
+  /** Full AT-URI */
+  uri: string;
+  /** Content hash */
+  cid: string;
+  /** AT-URI of the publication being subscribed to */
+  publication: string;
+  /** Raw record value */
+  _raw: Subscription;
+}
+
+/**
+ * Creates a loader for standard.site subscriptions
+ */
+export function subscriptionLoader(config: { repo: string; service?: string }) {
+  return {
+    name: 'standard-site-subscription-loader',
+
+    async load({ store, logger, generateDigest }: {
+      store: {
+        set: (entry: { id: string; data: unknown; digest?: string }) => void;
+        clear: () => void;
+      };
+      logger: {
+        info: (msg: string) => void;
+        warn: (msg: string) => void;
+        error: (msg: string) => void;
+      };
+      generateDigest: (data: unknown) => string;
+    }) {
+      const service = config.service ?? 'https://public.api.bsky.app';
+      logger.info(`Loading subscriptions from ${config.repo}`);
+
+      const agent = new AtpAgent({ service });
+
+      try {
+        let did = config.repo;
+        if (!did.startsWith('did:')) {
+          const resolved = await agent.resolveHandle({ handle: config.repo });
+          did = resolved.data.did;
+        }
+
+        const response = await agent.api.com.atproto.repo.listRecords({
+          repo: did,
+          collection: COLLECTIONS.SUBSCRIPTION,
+          limit: 100,
+        });
+
+        store.clear();
+
+        for (const record of response.data.records) {
+          const parsed = parseAtUri(record.uri);
+          if (!parsed) continue;
+
+          const subResult = SubscriptionSchema.safeParse(record.value);
+          if (!subResult.success) {
+            logger.warn(`Invalid subscription schema: ${subResult.error.message}`);
+            continue;
+          }
+
+          const sub = subResult.data;
+
+          const entry: StandardSiteSubscription = {
+            id: parsed.rkey,
+            uri: record.uri,
+            cid: record.cid,
+            publication: sub.publication,
+            _raw: sub,
+          };
+
+          store.set({
+            id: entry.id,
+            data: entry,
+            digest: generateDigest(entry),
+          });
+        }
+
+        logger.info(`Loaded ${response.data.records.length} subscriptions`);
+      } catch (err) {
+        logger.error(`Failed to load subscriptions: ${err}`);
         throw err;
       }
     },

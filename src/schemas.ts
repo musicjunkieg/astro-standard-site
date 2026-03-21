@@ -37,16 +37,11 @@ export type ThemeColorRgba = z.infer<typeof ThemeColorRgbaSchema>;
 // Simplified publication theme for tools or apps to easily implement
 // ============================================================================
 
-export const ThemeBasicPreferencesSchema = z.object({
-  showInDiscover: z.boolean().default(true).optional(),
-}).passthrough(); // Allow additional platform-specific preferences
-
 export const ThemeBasicSchema = z.object({
   background: ThemeColorRgbSchema,
   foreground: ThemeColorRgbSchema,
   accent: ThemeColorRgbSchema,
   accentForeground: ThemeColorRgbSchema,
-  preferences: ThemeBasicPreferencesSchema.optional(),
 });
 
 export type ThemeBasic = z.infer<typeof ThemeBasicSchema>;
@@ -79,11 +74,11 @@ export const PublicationSchema = z.object({
     size: z.number().max(1000000),
   }).optional(),
   
-  /** The name of the publication (max 128 graphemes) - REQUIRED */
-  name: z.string().max(1280),
-  
-  /** Brief description of the publication (max 300 graphemes) */
-  description: z.string().max(3000).optional(),
+  /** The name of the publication (maxLength: 5000, maxGraphemes: 500) - REQUIRED */
+  name: z.string().max(5000),
+
+  /** Brief description of the publication (maxLength: 30000, maxGraphemes: 3000) */
+  description: z.string().max(30000).optional(),
   
   /** Simplified publication theme for tools/apps */
   basicTheme: ThemeBasicSchema.optional(),
@@ -114,8 +109,8 @@ export const DocumentSchema = z.object({
   /** URI to the site or publication this document belongs to (https or at-uri) */
   site: z.string(),
   
-  /** Document title (max 128 graphemes) */
-  title: z.string().max(1280),
+  /** Document title (maxLength: 5000, maxGraphemes: 500) */
+  title: z.string().max(5000),
   
   /** When the document was published */
   publishedAt: z.string().datetime(),
@@ -123,8 +118,8 @@ export const DocumentSchema = z.object({
   /** Path to combine with site URL to construct full document URL */
   path: z.string().optional(),
   
-  /** Tags/categories for the document (max 50 graphemes each) */
-  tags: z.array(z.string().max(100)).optional(),
+  /** Tags/categories for the document (maxLength: 1280, maxGraphemes: 128 per tag) */
+  tags: z.array(z.string().max(1280)).optional(),
   
   /** Platform-specific content (open union - can be any type) */
   content: z.unknown().optional(),
@@ -145,8 +140,8 @@ export const DocumentSchema = z.object({
   /** Reference to associated Bluesky post */
   bskyPostRef: StrongRefSchema.optional(),
   
-  /** Document description/excerpt (max 300 graphemes) */
-  description: z.string().max(3000).optional(),
+  /** Document description/excerpt (maxLength: 30000, maxGraphemes: 3000) */
+  description: z.string().max(30000).optional(),
   
   /** Plain text content for indexing/search */
   textContent: z.string().optional(),
@@ -164,6 +159,20 @@ export const AtUriSchema = z.string().regex(
 );
 
 export type AtUri = z.infer<typeof AtUriSchema>;
+
+// ============================================================================
+// site.standard.graph.subscription
+// Tracks relationships between users and publications
+// ============================================================================
+
+export const SubscriptionSchema = z.object({
+  $type: z.literal('site.standard.graph.subscription').optional(),
+
+  /** AT-URI reference to the publication record being subscribed to */
+  publication: AtUriSchema,
+});
+
+export type Subscription = z.infer<typeof SubscriptionSchema>;
 
 /** Record returned from a PDS with full metadata */
 export const StandardSiteRecordSchema = z.object({
@@ -230,4 +239,5 @@ export type PublisherConfig = z.infer<typeof PublisherConfigSchema>;
 export const COLLECTIONS = {
   PUBLICATION: 'site.standard.publication',
   DOCUMENT: 'site.standard.document',
+  SUBSCRIPTION: 'site.standard.graph.subscription',
 } as const;

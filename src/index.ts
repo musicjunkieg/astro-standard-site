@@ -41,11 +41,13 @@
  */
 
 // Re-export loader
-export { 
-  standardSiteLoader, 
+export {
+  standardSiteLoader,
   publicationLoader,
+  subscriptionLoader,
   type StandardSiteDocument,
   type StandardSitePublication,
+  type StandardSiteSubscription,
   type LoaderConfig,
 } from './loader.js';
 
@@ -63,20 +65,22 @@ export {
   // Zod schemas
   PublicationSchema,
   DocumentSchema,
+  SubscriptionSchema,
   ThemeBasicSchema,
   ThemeColorSchema,
   StrongRefSchema,
   LoaderConfigSchema,
   PublisherConfigSchema,
   AtUriSchema,
-  
+
   // Types
   type Publication,
   type Document,
+  type Subscription,
   type ThemeBasic,
   type ThemeColor,
   type StrongRef,
-  
+
   // Constants
   COLLECTIONS,
 } from './schemas.js';
