@@ -10,23 +10,39 @@ Astro integration for ATProto longform publishing via the `standard.site` lexico
 
 ```
 src/
-  publisher.ts   # Publish to ATProto (stateful, handles auth)
-  loader.ts      # Load from ATProto into Astro
-  content.ts     # Transform markdown (sidenotes → blockquotes, resolve links)
-  comments.ts    # Fetch Bluesky replies as comments
-  schemas.ts     # Zod schemas for standard.site lexicons
+  index.ts        # Barrel entry point — re-exports the full public API
+  publisher.ts    # Publish to ATProto (stateful, handles auth + PDS resolution)
+  loader.ts       # Astro content-layer loaders (standardSiteLoader, publicationLoader)
+  content.ts      # Transform markdown (sidenotes → blockquotes, resolve links, plain text)
+  comments.ts     # Fetch Bluesky replies/mentions as a unified Comment tree
+  schemas.ts      # Zod schemas + COLLECTIONS constants for standard.site lexicons
+  verification.ts # .well-known / <link> helpers + standardSiteVerification integration
 components/
-  Comments.astro # Drop-in comment component
+  Comments.astro  # Drop-in comment component (imports from ../dist, so build first)
+scripts/
+  sync-to-atproto.ts # Example: sync a local Astro blog → ATProto (reference, not shipped)
 test/
-  content.test.ts
+  content.test.ts    # Vitest unit tests (content transforms + TID regex)
+.github/workflows/
+  ci.yml          # build + test on push/PR to main
+  publish.yml     # OIDC npm publish on GitHub release
+tsconfig.json     # tsc → dist/ (ES2022, ESM, declarations)
+vitest.config.ts  # node environment, globals off (import from vitest explicitly)
 ```
+
+The package ships only `dist/`, `components/`, and `README.md`. Subpath exports are
+defined in `package.json`: `.` (index), `./loader`, `./publisher`, `./content`,
+`./comments`, and `./components/*`.
 
 ## Commands
 
 ```bash
-npm run build    # Compile TypeScript
-npm test         # Run tests
+npm run build       # tsc → dist/ (required before the Comments.astro component works)
+npm test            # vitest run (single pass)
+npm run test:watch  # vitest watch mode
 ```
+
+`prepublishOnly` runs `build` then `test`, so a release won't publish if either fails.
 
 ## Critical: TID Format
 
@@ -46,10 +62,20 @@ See `generateTid()` in `src/publisher.ts` — do not modify without reading http
 ## Testing Against Real PDS
 
 ```bash
-ATPROTO_APP_PASSWORD="xxxx" npx tsx scripts/test-atproto.ts
+ATPROTO_APP_PASSWORD="xxxx" npx tsx scripts/sync-to-atproto.ts --dry-run
 ```
 
-For integration testing, use `pds.rip` (throwaway test accounts).
+`scripts/sync-to-atproto.ts` is the reference end-to-end harness — edit its `CONFIG`
+(identifier, siteUrl, contentDir) before running. Useful flags: `--dry-run`, `--force`,
+`--post=slug`, `--delete`. For integration testing, use `pds.rip` (throwaway test accounts).
+
+## Critical: Publisher Config Shape
+
+`StandardSitePublisher` is constructed with `{ identifier, password, service? }` and
+validated by `PublisherConfigSchema` — NOT `{ handle, appPassword }` (some README
+snippets are out of date). `service` is optional; when omitted the PDS is auto-resolved
+from the DID document (`resolveHandle` → `getPdsFromDid`), so it works with any PDS.
+Call `await publisher.login()` before any publish/list call.
 
 ## Reference Docs
 
