@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   transformContent,
+  transformPost,
   convertSidenotes,
   resolveRelativeLinks,
   stripToPlainText,
@@ -200,5 +201,38 @@ More content follows.`;
     // Check metadata
     expect(result.wordCount).toBeGreaterThan(0);
     expect(result.readingTime).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('transformPost', () => {
+  const post = {
+    slug: 'hello-world',
+    body: '# Hello\n\nSome **bold** text and a [link](/about).',
+    data: {
+      title: 'Hello',
+      description: 'An intro',
+      date: new Date('2026-01-15T00:00:00Z'),
+      tags: ['astro'],
+    },
+  };
+
+  it('emits the at.markpub.markdown content type with nested markdown text', () => {
+    const doc = transformPost(post, { siteUrl: 'https://example.com' });
+    expect(doc.content?.$type).toBe('at.markpub.markdown');
+    expect(doc.content?.text.markdown).toContain('Hello');
+    expect(doc.content?.flavor).toBe('commonmark');
+  });
+
+  it('always emits portable plaintext textContent alongside content', () => {
+    const doc = transformPost(post, { siteUrl: 'https://example.com' });
+    expect(doc.textContent).toContain('Hello');
+    expect(doc.textContent).not.toContain('**');
+  });
+
+  it('sets site, path and ISO publishedAt', () => {
+    const doc = transformPost(post, { siteUrl: 'https://example.com' });
+    expect(doc.site).toBe('https://example.com');
+    expect(doc.path).toBe('/blog/hello-world');
+    expect(doc.publishedAt).toBe('2026-01-15T00:00:00.000Z');
   });
 });

@@ -62,16 +62,19 @@
     "test:watch": "vitest",
     "prepublishOnly": "npm run build && npm test"
   },
+  "engines": {
+    "node": "^18.20.8 || ^20.3.0 || >=22.0.0"
+  },
   "dependencies": {
-    "@atproto/api": "^0.15.0",
-    "zod": "^3.24.0"
+    "@atproto/api": "^0.15.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "astro": "^6.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.16"
   },
   "peerDependencies": {
-    "astro": "^5.0.0"
+    "astro": "^5.0.0 || ^6.0.0"
   }
 }

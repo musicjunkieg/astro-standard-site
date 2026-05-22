@@ -124,26 +124,6 @@ export interface PublishResult {
 }
 
 /**
- * Generate a record key from a string (slug-like)
- */
-function generateRkey(input?: string): string {
-  if (input) {
-    // Sanitize and truncate for use as record key
-    return input
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 64);
-  }
-  // Fallback to timestamp-based key
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-
-/**
- * Generate a TID (Timestamp ID) for record keys
- * TIDs are base32-sortable identifiers used in ATProto
- */
-/**
  * Generate a TID (Timestamp Identifier) per ATProto spec
  * @see https://atproto.com/specs/tid
  * 

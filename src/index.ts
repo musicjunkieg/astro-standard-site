@@ -41,9 +41,11 @@
  */
 
 // Re-export loader
-export { 
-  standardSiteLoader, 
+export {
+  standardSiteLoader,
   publicationLoader,
+  documentEntrySchema,
+  publicationEntrySchema,
   type StandardSiteDocument,
   type StandardSitePublication,
   type LoaderConfig,
@@ -65,18 +67,34 @@ export {
   DocumentSchema,
   ThemeBasicSchema,
   ThemeColorSchema,
+  ThemeColorRgbSchema,
+  ThemeColorRgbaSchema,
   StrongRefSchema,
+  ContributorSchema,
+  SelfLabelsSchema,
+  ImageBlobSchema,
+  PublicationPreferencesSchema,
+  GraphSubscriptionSchema,
+  GraphRecommendSchema,
   LoaderConfigSchema,
   PublisherConfigSchema,
   AtUriSchema,
-  
+
   // Types
   type Publication,
   type Document,
   type ThemeBasic,
   type ThemeColor,
+  type ThemeColorRgb,
+  type ThemeColorRgba,
   type StrongRef,
-  
+  type Contributor,
+  type SelfLabels,
+  type ImageBlob,
+  type PublicationPreferences,
+  type GraphSubscription,
+  type GraphRecommend,
+
   // Constants
   COLLECTIONS,
 } from './schemas.js';
@@ -106,6 +124,7 @@ export {
   type TransformResult,
   type AstroBlogPost,
   type StandardSiteDocumentInput,
+  type MarkpubMarkdown,
 } from './content.js';
 
 // Re-export comment utilities

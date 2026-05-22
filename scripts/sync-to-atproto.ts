@@ -161,9 +161,9 @@ function postToDocument(post: BlogPost, siteUrl: string): PublishDocumentInput {
     tags: post.frontmatter.tags,
     textContent: transformed.textContent,
     content: {
-      $type: 'site.standard.content.markdown',
-      text: transformed.markdown,
-      version: '1.0',
+      $type: 'at.markpub.markdown',
+      text: { markdown: transformed.markdown },
+      flavor: 'commonmark',
     },
     // Note: rkey is auto-generated as a TID per the lexicon spec
   };
@@ -207,10 +207,7 @@ async function sync() {
     // Ensure publication exists
     console.log('📚 Checking publication...');
     const publications = await publisher.listPublications();
-    const existingPub = publications.find(p => 
-      p.value.url === CONFIG.siteUrl || 
-      p.uri.endsWith(`/${CONFIG.publication.rkey}`)
-    );
+    const existingPub = publications.find(p => p.value.url === CONFIG.siteUrl);
     
     if (!existingPub) {
       console.log('   Creating publication...');

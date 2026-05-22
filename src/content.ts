@@ -273,11 +273,19 @@ export interface StandardSiteDocumentInput {
   description?: string;
   tags?: string[];
   textContent?: string;
-  content?: {
-    $type: string;
-    text: string;
-    version?: string;
-  };
+  /**
+   * Rich content in the standard.site `content` open union. We emit
+   * `at.markpub.markdown`, a recognized ecosystem markdown type, alongside the
+   * portable plaintext `textContent`. (markpub is still stabilizing its lexicon.)
+   */
+  content?: MarkpubMarkdown;
+}
+
+/** at.markpub.markdown — inline markdown body via the nested at.markpub.text object */
+export interface MarkpubMarkdown {
+  $type: 'at.markpub.markdown';
+  text: { markdown: string };
+  flavor?: 'commonmark' | 'gfm';
 }
 
 export function transformPost(
@@ -301,9 +309,9 @@ export function transformPost(
     tags: post.data.tags,
     textContent: transformed.textContent,
     content: {
-      $type: 'site.standard.content.markdown',
-      text: transformed.markdown,
-      version: '1.0',
+      $type: 'at.markpub.markdown',
+      text: { markdown: transformed.markdown },
+      flavor: 'commonmark',
     },
   };
 }
