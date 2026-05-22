@@ -1,10 +1,13 @@
 /**
  * Verification utilities for standard.site
- * 
+ *
  * Helpers for implementing the verification endpoints described at https://standard.site/
  * - Publication verification via /.well-known/site.standard.publication
  * - Document verification via <link rel="site.standard.document"> tags
  */
+
+import { fileURLToPath } from 'node:url';
+import type { AstroIntegration } from 'astro';
 
 export interface VerificationConfig {
   /** Your ATProto DID */
@@ -93,16 +96,20 @@ export function parseAtUri(uri: string): {
   };
 }
 
+const VIRTUAL_PUBLICATION_URI = 'virtual:standard-site/publication-uri';
+
 /**
- * Astro integration for verification endpoints
- * 
- * Automatically sets up the /.well-known/site.standard.publication endpoint
- * 
+ * Astro integration that serves the publication verification endpoint.
+ *
+ * Injects `/.well-known/site.standard.publication` returning the publication
+ * AT-URI, so you no longer have to hand-create the route file. Prerendered, so
+ * it works on static (SSG) and on-demand (SSR) sites.
+ *
  * @example
  * ```ts
  * // astro.config.mjs
  * import { standardSiteVerification } from 'astro-standard-site';
- * 
+ *
  * export default defineConfig({
  *   integrations: [
  *     standardSiteVerification({
@@ -113,18 +120,37 @@ export function parseAtUri(uri: string): {
  * });
  * ```
  */
-export function standardSiteVerification(config: VerificationConfig) {
+export function standardSiteVerification(config: VerificationConfig): AstroIntegration {
+  const publicationAtUri = generatePublicationWellKnown(config);
+  const resolvedId = '\0' + VIRTUAL_PUBLICATION_URI;
+
   return {
     name: 'standard-site-verification',
     hooks: {
-      'astro:config:setup': ({ injectRoute }: { injectRoute: (config: { pattern: string; entrypoint: string }) => void }) => {
-        // We can't actually inject routes with custom content this way,
-        // but we provide the helper functions for manual setup
-        console.log(
-          '[standard-site-verification] To complete setup, create:\n' +
-          '  src/pages/.well-known/site.standard.publication.ts\n' +
-          'With content: ' + generatePublicationWellKnown(config)
-        );
+      'astro:config:setup': ({ injectRoute, updateConfig }) => {
+        updateConfig({
+          vite: {
+            plugins: [
+              {
+                name: 'standard-site-verification',
+                resolveId(id: string) {
+                  return id === VIRTUAL_PUBLICATION_URI ? resolvedId : null;
+                },
+                load(id: string) {
+                  return id === resolvedId
+                    ? `export const publicationAtUri = ${JSON.stringify(publicationAtUri)};`
+                    : null;
+                },
+              },
+            ],
+          },
+        });
+
+        injectRoute({
+          pattern: '/.well-known/site.standard.publication',
+          entrypoint: fileURLToPath(new URL('./routes/well-known-publication.js', import.meta.url)),
+          prerender: true,
+        });
       },
     },
   };

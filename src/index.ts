@@ -110,6 +110,13 @@ export {
   type VerificationConfig,
 } from './verification.js';
 
+// Re-export publish-on-build integration
+export {
+  standardSitePublishing,
+  collectDocuments,
+  type PublishIntegrationConfig,
+} from './integration.js';
+
 // Re-export content transformation utilities
 export {
   transformContent,

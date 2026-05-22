@@ -71,6 +71,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "astro": "^6.0.0",
+    "gray-matter": "^4.0.3",
     "typescript": "^5.7.0",
     "vitest": "^4.0.16"
   },
