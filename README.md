@@ -57,7 +57,7 @@ const { bskyPostUri } = Astro.props.frontmatter;
 **Add the field to your content schema:**
 
 ```ts
-// src/content/config.ts
+// src/content.config.ts
 import { defineCollection, z } from 'astro:content';
 
 const blog = defineCollection({
@@ -109,8 +109,8 @@ First, create a publication record that represents your blog:
 import { StandardSitePublisher } from '@bryanguffey/astro-standard-site';
 
 const publisher = new StandardSitePublisher({
-  handle: 'you.bsky.social',
-  appPassword: process.env.ATPROTO_APP_PASSWORD!,
+  identifier: 'you.bsky.social',
+  password: process.env.ATPROTO_APP_PASSWORD!,
 });
 
 await publisher.login();
@@ -141,13 +141,59 @@ ATPROTO_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" npx tsx scripts/create-publication.ts
 
 ### Publish Posts
 
-Create a sync script to publish your Astro posts:
+The simplest option is the `standardSitePublishing` integration, which publishes
+your posts after a build. It's gated by an env flag so preview/CI builds never
+publish by accident:
 
-see example in scripts/sync-to-atproto.ts
+```ts
+// astro.config.mjs
+import { defineConfig } from 'astro/config';
+import { standardSitePublishing } from '@bryanguffey/astro-standard-site';
+
+export default defineConfig({
+  integrations: [
+    standardSitePublishing({
+      identifier: 'you.bsky.social',
+      siteUrl: 'https://yourblog.com',
+      // contentDir: 'src/content/blog',  // default
+      publication: { name: 'My Blog', description: 'Thoughts on everything' },
+    }),
+  ],
+});
+```
+
+Then publish a build (requires `gray-matter` installed):
+
+```bash
+STANDARD_SITE_PUBLISH=true ATPROTO_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" npm run build
+```
+
+Prefer an explicit, standalone script instead? A working example lives in
+`scripts/sync-to-atproto.ts`.
 
 ### Set Up Verification
 
-Verification lets platforms confirm you own the content. Create a well-known endpoint:
+Verification lets platforms confirm you own the content. The easiest way is the
+`standardSiteVerification` integration, which injects the
+`/.well-known/site.standard.publication` endpoint for you (works on static and
+SSR sites):
+
+```ts
+// astro.config.mjs
+import { defineConfig } from 'astro/config';
+import { standardSiteVerification } from '@bryanguffey/astro-standard-site';
+
+export default defineConfig({
+  integrations: [
+    standardSiteVerification({
+      did: 'did:plc:your-did-here',       // Your DID
+      publicationRkey: 'your-rkey-here',  // From create-publication output
+    }),
+  ],
+});
+```
+
+Prefer to wire it up yourself? Create the endpoint manually instead:
 
 ```ts
 // src/pages/.well-known/site.standard.publication.ts
@@ -157,8 +203,8 @@ import { generatePublicationWellKnown } from '@bryanguffey/astro-standard-site';
 export const GET: APIRoute = () => {
   return new Response(
     generatePublicationWellKnown({
-      did: 'did:plc:your-did-here',           // Your DID
-      publicationRkey: 'your-rkey-here',        // From create-publication output
+      did: 'did:plc:your-did-here',
+      publicationRkey: 'your-rkey-here',
     }),
     { headers: { 'Content-Type': 'text/plain' } }
   );
@@ -224,10 +270,10 @@ Handles authentication and publishing to ATProto.
 import { StandardSitePublisher } from '@bryanguffey/astro-standard-site';
 
 const publisher = new StandardSitePublisher({
-  handle: 'you.bsky.social',      // Your handle
-  appPassword: 'xxxx-xxxx-xxxx',  // App password (not your main password!)
+  identifier: 'you.bsky.social',  // Your handle or DID
+  password: 'xxxx-xxxx-xxxx',     // App password (not your main password!)
   // Optional: specify PDS directly (auto-resolved from DID by default)
-  pdsUrl: 'https://bsky.social',
+  service: 'https://bsky.social',
 });
 
 await publisher.login();
@@ -292,7 +338,7 @@ Transform markdown for ATProto compatibility.
 import { transformContent } from '@bryanguffey/astro-standard-site';
 
 const result = transformContent(markdownString, {
-  baseUrl: 'https://yourblog.com',  // For resolving relative links
+  siteUrl: 'https://yourblog.com',  // For resolving relative links
 });
 
 result.markdown;      // Cleaned markdown (sidenotes converted, links resolved)
@@ -315,7 +361,7 @@ Astro Content Layer loader — pull YOUR content written on other platforms (Lea
 **Primary use case:** You write posts on Leaflet, and want them to appear on your Astro site — but NOT the posts you published *from* your Astro site to ATProto.
 
 ```ts
-// src/content/config.ts
+// src/content.config.ts
 import { defineCollection } from 'astro:content';
 import { standardSiteLoader } from '@bryanguffey/astro-standard-site';
 
@@ -359,8 +405,8 @@ const posts = await getCollection('federated');
     )}
     
     {/* Or handle markdown content specifically */}
-    {post.data.content?.$type === 'site.standard.content.markdown' && (
-      <div set:html={marked(post.data.content.text)} />
+    {post.data.content?.$type === 'at.markpub.markdown' && (
+      <div set:html={marked(post.data.content.text.markdown)} />
     )}
   </article>
 ))}
@@ -385,15 +431,15 @@ const posts = await getCollection('federated');
 
 **About the `content` field:**
 
-The `content` field is an open union — different platforms use different types. Use `textContent` for simple display, or check `content.$type` for rich rendering:
+The `content` field is an open union — standard.site itself defines no content type, so platforms supply their own (e.g. `at.markpub.markdown`, `pub.leaflet.*`). Use `textContent` for simple display, or check `content.$type` for rich rendering:
 
 ```ts
-// Markdown content (Leaflet, this package)
-if (post.data.content?.$type === 'site.standard.content.markdown') {
-  const markdown = post.data.content.text;
+// Markdown content (markpub-style, what this package publishes)
+if (post.data.content?.$type === 'at.markpub.markdown') {
+  const markdown = post.data.content.text.markdown;
 }
 
-// Or just use textContent for plain text
+// Or just use textContent for portable plain text
 const plainText = post.data.textContent;
 ```
 

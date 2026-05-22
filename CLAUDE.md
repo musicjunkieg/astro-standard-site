@@ -12,20 +12,26 @@ Astro integration for ATProto longform publishing via the `standard.site` lexico
 src/
   index.ts        # Barrel entry point — re-exports the full public API
   publisher.ts    # Publish to ATProto (stateful, handles auth + PDS resolution)
-  loader.ts       # Astro content-layer loaders (standardSiteLoader, publicationLoader)
+  loader.ts       # Content-layer loaders + entry Zod schemas (standardSiteLoader, publicationLoader)
   content.ts      # Transform markdown (sidenotes → blockquotes, resolve links, plain text)
   comments.ts     # Fetch Bluesky replies/mentions as a unified Comment tree
-  schemas.ts      # Zod schemas + COLLECTIONS constants for standard.site lexicons
+  schemas.ts      # Zod schemas (from astro/zod) + COLLECTIONS for standard.site lexicons
   verification.ts # .well-known / <link> helpers + standardSiteVerification integration
+  integration.ts  # standardSitePublishing (opt-in publish-on-build) + collectDocuments
+  routes/
+    well-known-publication.ts  # Route injected by standardSiteVerification
+  virtual.d.ts    # Types for the virtual module that feeds the injected route
 components/
   Comments.astro  # Drop-in comment component (imports from ../dist, so build first)
 scripts/
   sync-to-atproto.ts # Example: sync a local Astro blog → ATProto (reference, not shipped)
 test/
-  content.test.ts    # Vitest unit tests (content transforms + TID regex)
+  content.test.ts     # content transforms, transformPost, TID regex
+  loader.test.ts      # loader entry schemas (date coercion, open content union)
+  integration.test.ts # collectDocuments (file → publishable document)
 .github/workflows/
-  ci.yml          # build + test on push/PR to main
-  publish.yml     # OIDC npm publish on GitHub release
+  ci.yml          # matrix: Node 20+Astro 5 and Node 22+Astro 6 (build + test)
+  publish.yml     # OIDC npm publish on GitHub release (Node 22)
 tsconfig.json     # tsc → dist/ (ES2022, ESM, declarations)
 vitest.config.ts  # node environment, globals off (import from vitest explicitly)
 ```
@@ -33,6 +39,23 @@ vitest.config.ts  # node environment, globals off (import from vitest explicitly
 The package ships only `dist/`, `components/`, and `README.md`. Subpath exports are
 defined in `package.json`: `.` (index), `./loader`, `./publisher`, `./content`,
 `./comments`, and `./components/*`.
+
+## Critical: Astro 5/6 + Zod
+
+Supports `astro@^5 || ^6` (peerDependency). Zod is imported from `astro/zod` (not a
+direct dep) so schemas use the host's Zod — Zod 3 on Astro 5, Zod 4 on Astro 6.
+**Only write schema syntax valid on both** (e.g. `.datetime()`, `.url()`,
+`.coerce.date()`); the Zod-4-only forms (`z.iso.datetime()`, `z.looseObject()`) break
+Astro 5. Loaders use a static Zod `schema` + `parseData` (the `schema` *function* form
+was removed in Astro 6). Astro 6 requires Node 22+; Astro 5 runs on 18/20.
+
+## Critical: Content Type
+
+standard.site's `document.content` is an open union and standard.site defines **no**
+content `$type` of its own. Do not invent `site.standard.content.*` types — nothing
+recognizes them. We publish portable plaintext `textContent` plus `at.markpub.markdown`
+(`{ text: { markdown }, flavor }`), a recognized ecosystem type. `content` stays
+`z.unknown()` in the schema so any platform's type round-trips.
 
 ## Commands
 
@@ -72,10 +95,10 @@ ATPROTO_APP_PASSWORD="xxxx" npx tsx scripts/sync-to-atproto.ts --dry-run
 ## Critical: Publisher Config Shape
 
 `StandardSitePublisher` is constructed with `{ identifier, password, service? }` and
-validated by `PublisherConfigSchema` — NOT `{ handle, appPassword }` (some README
-snippets are out of date). `service` is optional; when omitted the PDS is auto-resolved
-from the DID document (`resolveHandle` → `getPdsFromDid`), so it works with any PDS.
-Call `await publisher.login()` before any publish/list call.
+validated by `PublisherConfigSchema` — NOT `{ handle, appPassword }`. `service` is
+optional; when omitted the PDS is auto-resolved from the DID document (`resolveHandle`
+→ `getPdsFromDid`), so it works with any PDS. Call `await publisher.login()` before any
+publish/list call.
 
 ## Reference Docs
 
